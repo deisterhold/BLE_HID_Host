@@ -56,7 +56,7 @@ Add the component to your ESPHome configuration:
 
 ```yaml
 external_components:
-  - source: github://deisterhold/BLE_HID_Host
+  - source: github://deisterhold/esphome-components
     components: [classic_bt_hid]
 ```
 
