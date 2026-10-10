@@ -1,27 +1,13 @@
-# Bluetooth Classic HID Host
+# ESPHome Classic HID component
 
-Native ESP-IDF 6.1 application for the original ESP32. It continuously scans for Bluetooth Classic peripherals, attempts a HID connection, requests boot protocol, and logs raw reports plus decoded standard keyboard and mouse input.
+This external component owns the ESP32 Bluedroid Classic HID host and emits generic events. It does not name mouse buttons or interpret report layouts: `on_input` receives the device address, protocol mode (`0` boot or `1` report), and a copy of the raw HID input bytes. ESPHome lambdas can filter by address, report ID, payload, and button bits.
 
-On the target mouse, report ID `0x03` carries left/right/bottom button masks in byte 1 (`0x10`, `0x20`, and `0x04`). A left or right release starts that strip blinking yellow; releasing the bottom button cancels both patterns. Blink timing is 300 ms per phase.
+`classic_bt_hid_example.yaml` configures the two SK6812 RGBW strips in YAML and shows the observed mouse's release filters (`report ID 0x03`, button bits `0x10`, `0x20`, and `0x04`). Those filters and pin assignments are example-specific; the component itself forwards input reports unchanged.
 
-## Hardware and configuration
+## Use
 
-- Use an original ESP32 with Bluetooth Classic support, such as ESP32 Dev Module. ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6, and ESP32-H2 do not support Bluetooth Classic.
-- The project enables Bluedroid Classic Bluetooth and the HID Host profile in `sdkconfig.defaults`.
-- A candidate is selected by its Bluetooth Class of Device peripheral category. HID connection then confirms whether it provides the Classic HID service.
-- Two WS2812/NeoPixel strips are configured for 8 pixels each on GPIO 18 (left) and GPIO 19 (right). Change `LEFT_STRIP_GPIO`, `RIGHT_STRIP_GPIO`, and `STRIP_PIXEL_COUNT` in `main/main.c` to match your wiring.
-- Use an external 5 V supply for the strips as needed, and connect its ground to ESP32 ground. Do not power a large strip from an ESP32 GPIO or 3.3 V pin.
+The example YAML fetches this component from `https://github.com/deisterhold/BLE_HID_Host`, branch `main`, under `esphome/components`. Push the component to that branch before compiling the example. Configure the original ESP32 with the ESP-IDF framework and the Classic Bluetooth HID Host sdkconfig options shown in the example. `mac_address` is an optional scan filter; when omitted, the component attempts the first discovered Bluetooth peripheral and reconnects after disconnect/failure. The example defines 8-pixel RGBW strips on GPIO 18 and GPIO 21 and handles yellow blinking/cancellation entirely in YAML.
 
-## Build and flash
+The component must be the only owner of the ESP32 Bluetooth controller. Do not combine it with ESPHome BLE tracker/client/proxy components. Pairing confirmation is accepted automatically, and legacy PIN requests use `0000`.
 
-Open an ESP-IDF 6.1 terminal in this project directory and run:
-
-```powershell
-idf.py set-target esp32
-idf.py build
-idf.py -p COMx flash monitor
-```
-
-Replace `COMx` with the ESP32 serial port. Pairing confirmation is accepted automatically; legacy PIN requests are answered with `0000`. Put the keyboard or mouse into pairing mode before starting the monitor.
-
-Standard boot keyboard reports produce key down/up events. Standard boot mouse reports produce button, relative X/Y, and wheel values. Raw report bytes are also logged. Devices that do not support boot protocol may still provide raw input reports, but this application does not decode their device-specific report layouts.
+ESPHome CLI was not installed in this workspace, so the component and example YAML have not been validated with `esphome compile` here. The existing native ESP-IDF firmware remains unchanged.

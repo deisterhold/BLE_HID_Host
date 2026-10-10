@@ -1,0 +1,135 @@
+esphome:
+  name: classic-hid-events
+
+esp32:
+  variant: esp32
+  flash_size: 4MB
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_BT_ENABLED: "y"
+      CONFIG_BTDM_CTRL_MODE_BTDM: "y"
+      CONFIG_BT_BLUEDROID_ENABLED: "y"
+      CONFIG_BT_CLASSIC_ENABLED: "y"
+      CONFIG_BT_HID_ENABLED: "y"
+      CONFIG_BT_HID_HOST_ENABLED: "y"
+    advanced:
+      include_builtin_idf_components:
+        - bt
+        - nvs_flash
+
+logger:
+  baud_rate: 115200
+
+light:
+  - platform: esp32_rmt_led_strip
+    id: left_strip
+    name: "Left NeoPixel Strip"
+    pin: GPIO18
+    num_leds: 8
+    chipset: sk6812
+    channel_colors: GRBW
+    restore_mode: ALWAYS_OFF
+    effects:
+      - strobe:
+          name: "Yellow Blink"
+          colors:
+            - state: true
+              brightness: 35%
+              red: 100%
+              green: 100%
+              blue: 0%
+              white: 0%
+              duration: 300ms
+            - state: false
+              duration: 300ms
+  - platform: esp32_rmt_led_strip
+    id: right_strip
+    name: "Right NeoPixel Strip"
+    pin: GPIO21
+    num_leds: 8
+    chipset: sk6812
+    channel_colors: GRBW
+    restore_mode: ALWAYS_OFF
+    effects:
+      - strobe:
+          name: "Yellow Blink"
+          colors:
+            - state: true
+              brightness: 35%
+              red: 100%
+              green: 100%
+              blue: 0%
+              white: 0%
+              duration: 300ms
+            - state: false
+              duration: 300ms
+
+external_components:
+  - source: github://deisterhold/BLE_HID_Host
+    components: [classic_bt_hid]
+
+globals:
+  - id: previous_hid_buttons
+    type: uint8_t
+    initial_value: "0"
+
+classic_bt_hid:
+  mac_address: "75:47:7D:57:5A:3C"
+  on_connect:
+    then:
+      - logger.log:
+          format: "Connected to %s"
+          args: [address.c_str()]
+      - globals.set:
+          id: previous_hid_buttons
+          value: "0"
+  on_disconnect:
+    then:
+      - logger.log:
+          format: "Disconnected from %s"
+          args: [address.c_str()]
+      - globals.set:
+          id: previous_hid_buttons
+          value: "0"
+      - light.turn_off: left_strip
+      - light.turn_off: right_strip
+  on_connection_error:
+    then:
+      - lambda: |-
+          ESP_LOGW("hid_example", "Connection to %s failed with status %u", address.c_str(), status);
+  on_input:
+    then:
+      - if:
+          condition:
+            lambda: |-
+              return report.size() == 3 && report[0] == 0x03;
+          then:
+            - if:
+                condition:
+                  lambda: |-
+                    return (id(previous_hid_buttons) & 0x10) != 0 && (report[1] & 0x10) == 0;
+                then:
+                  - light.turn_off: right_strip
+                  - light.turn_on:
+                      id: left_strip
+                      effect: "Yellow Blink"
+            - if:
+                condition:
+                  lambda: |-
+                    return (id(previous_hid_buttons) & 0x20) != 0 && (report[1] & 0x20) == 0;
+                then:
+                  - light.turn_off: left_strip
+                  - light.turn_on:
+                      id: right_strip
+                      effect: "Yellow Blink"
+            - if:
+                condition:
+                  lambda: |-
+                    return (id(previous_hid_buttons) & 0x04) != 0 && (report[1] & 0x04) == 0;
+                then:
+                  - light.turn_off: left_strip
+                  - light.turn_off: right_strip
+            - globals.set:
+                id: previous_hid_buttons
+                value: !lambda "return report[1];"
