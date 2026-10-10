@@ -75,7 +75,7 @@ globals:
     initial_value: "0"
 
 classic_bt_hid:
-  mac_address: "75:47:7D:57:5A:3C"
+  mac_address: "XX:XX:XX:XX:XX:XX"
   on_connect:
     then:
       - logger.log:
